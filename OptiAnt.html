@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptiAnt — Ant Colony Optimization Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+        :root {
+            --soil: #3d2b1f;
+            --soil2: #4a3526;
+            --soil3: #5c4033;
+            --grass: #4a7c3f;
+            --grass2: #5a9e4e;
+            --amber: #d4820a;
+            --amber2: #f0a020;
+            --teal: #1a8a5a;
+            --teal2: #22b070;
+            --bark: #6b4226;
+            --bark2: #8b5e3c;
+            --stone: #8a8a7a;
+            --stone2: #a8a896;
+            --pheromone: #f5c842;
+            --ant-blue: #4a90d9;
+            --ant-red: #d94a4a;
+            --ui-bg: rgba(30, 18, 10, 0.96);
+            --ui-border: #6b4226;
+            --text-main: #f5e6c8;
+            --text-muted: #b09070;
+            --badge-green: #22b070;
+            --badge-orange: #f0a020;
+            --badge-red: #d94a4a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: var(--soil);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* ── TOP BAR ── */
+        #topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 16px;
+            background: var(--ui-bg);
+            border-bottom: 2px solid var(--ui-border);
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        #title-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #title-block .logo {
+            font-size: 22px;
+        }
+        #title-text {
+            line-height: 1.1;
+        }
+        #title-text .main {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 9px;
+            color: var(--amber2);
+            letter-spacing: 1px;
+        }
+        #title-text .sub {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        #stats {
+            display: flex;
+            gap: 10px;
+        }
+        .stat {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--ui-border);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 14px;
+            text-align: center;
+            min-width: 70px;
+        }
+        .stat .sv {
+            font-size: 18px;
+            color: var(--amber2);
+            font-weight: bold;
+        }
+        .stat .sk {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ── MAIN LAYOUT ── */
+        #main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ── CANVAS AREA ── */
+        #stage {
+            position: relative;
+            flex: 1;
+            background: radial-gradient(ellipse at 60% 40%, #5c4033 0%, #3d2b1f 100%);
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        #bgcanvas,
+        #pheromonecanvas,
+        #gamecanvas,
+        #uicanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #bgcanvas {
+            z-index: 1;
+        }
+        #pheromonecanvas {
+            z-index: 2;
+            opacity: 0.85;
+        }
+        #gamecanvas {
+            z-index: 3;
+        }
+        #uicanvas {
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        /* ── SIDE PANEL ── */
+        #panel {
+            width: 220px;
+            flex-shrink: 0;
+            background: var(--ui-bg);
+            border-left: 2px solid var(--ui-border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            overflow-y: auto;
+        }
+        .panel-section {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(107, 66, 38, 0.5);
+        }
+        .panel-section h3 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 7px;
+            color: var(--amber2);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .tool-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 6px 4px;
+            border: 1.5px solid var(--ui-border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            font-size: 13px;
+            transition: all 0.15s;
+            position: relative;
+        }
+        .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.10);
+            border-color: var(--amber);
+        }
+        .tool-btn.active {
+            background: rgba(212, 130, 10, 0.25);
+            border-color: var(--amber2);
+            color: var(--amber2);
+        }
+        .tool-btn .icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+        .tool-btn .cost {
+            position: absolute;
+            top: 3px;
+            right: 5px;
+            font-size: 10px;
+            color: var(--badge-green);
+        }
+        .tool-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-top: 4px;
+        }
+
+        .sl-row {
+            margin-bottom: 8px;
+        }
+        .sl-row label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 2px;
+            color: var(--text-muted);
+        }
+        .sl-row label span {
+            color: var(--amber2);
+        }
+        .sl-row input[type=range] {
+            width: 100%;
+            accent-color: var(--amber2);
+            height: 4px;
+            cursor: pointer;
+        }
+
+        .sim-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .sim-btn {
+            padding: 6px;
+            font-family: 'VT323', monospace;
+            font-size: 15px;
+            border-radius: 6px;
+            border: 1.5px solid var(--ui-border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .sim-btn:hover {
+            background: rgba(255, 255, 255, 0.10);
+        }
+        .sim-btn.go {
+            background: rgba(34, 176, 112, 0.2);
+            border-color: var(--teal2);
+            color: var(--teal2);
+        }
+        .sim-btn.go:hover {
+            background: rgba(34, 176, 112, 0.35);
+        }
+        .sim-btn.danger {
+            background: rgba(217, 74, 74, 0.15);
+            border-color: var(--badge-red);
+            color: var(--badge-red);
+        }
+        .sim-btn.danger:hover {
+            background: rgba(217, 74, 74, 0.3);
+        }
+        .sim-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        #logbox {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.8;
+            color: var(--text-muted);
+            overflow-y: auto;
+            min-height: 80px;
+        }
+        #logbox .ev-good {
+            color: var(--teal2);
+        }
+        #logbox .ev-best {
+            color: var(--amber2);
+        }
+        #logbox .ev-warn {
+            color: var(--badge-red);
+        }
+        #logbox .ev-info {
+            color: var(--text-muted);
+        }
+
+        #legend {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(107, 66, 38, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .leg-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .leg-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        #banner {
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 12, 5, 0.92);
+            border: 1.5px solid var(--amber);
+            border-radius: 20px;
+            padding: 5px 20px;
+            font-size: 14px;
+            color: var(--amber2);
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            white-space: nowrap;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--ui-border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOP BAR -->
+    <div id="topbar">
+        <div id="title-block">
+            <span class="logo">🐜</span>
+            <div id="title-text">
+                <div class="main">OptiAnt</div>
+                <div class="sub">Ant Colony Optimization</div>
+            </div>
+        </div>
+        <div id="stats">
+            <div class="stat"><div class="sv" id="cIter">0</div><div class="sk">Iterasi</div></div>
+            <div class="stat"><div class="sv" id="cBest">—</div><div class="sk">Best Path</div></div>
+            <div class="stat"><div class="sv" id="cFood">0</div><div class="sk">Makanan</div></div>
+            <div class="stat"><div class="sv" id="cAnts">0</div><div class="sk">Semut Aktif</div></div>
+        </div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <!-- CANVAS STACK -->
+        <div id="stage">
+            <canvas id="bgcanvas"></canvas>
+            <canvas id="pheromonecanvas"></canvas>
+            <canvas id="gamecanvas"></canvas>
+            <canvas id="uicanvas"></canvas>
+            <div id="banner">🐜 Pilih alat di samping, lalu klik di peta</div>
+        </div>
+
+        <!-- SIDE PANEL -->
+        <div id="panel">
+
+            <!-- TOOLS -->
+            <div class="panel-section">
+                <h3>🛠 Alat Penempatan</h3>
+                <div class="tool-grid">
+                    <button class="tool-btn" id="t-rock" data-tool="rock">
+                        <span class="icon">🪨</span>Batu
+                        <span class="cost">-10</span>
+                    </button>
+                    <button class="tool-btn" id="t-twig" data-tool="twig">
+                        <span class="icon">🪵</span>Ranting
+                        <span class="cost">-5</span>
+                    </button>
+                    <button class="tool-btn" id="t-apple" data-tool="apple">
+                        <span class="icon">🍎</span>Apel
+                        <span class="cost">-15</span>
+                    </button>
+                    <button class="tool-btn" id="t-sugar" data-tool="sugar">
+                        <span class="icon">🍬</span>Gula
+                        <span class="cost">-15</span>
+                    </button>
+                    <button class="tool-btn" id="t-mushroom" data-tool="mushroom">
+                        <span class="icon">🍄</span>Jamur
+                        <span class="cost">-15</span>
+                    </button>
+                    <button class="tool-btn" id="t-erase" data-tool="erase">
+                        <span class="icon">🗑</span>Hapus
+                        <span class="cost" style="color:#f09">free</span>
+                    </button>
+                </div>
+                <div class="tool-hint" id="tool-hint">Pilih alat lalu klik di peta untuk menempatkannya.</div>
+            </div>
+
+            <!-- BUILD POINTS -->
+            <div class="panel-section">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px">
+                    <span style="color:var(--text-muted)">Build Points</span>
+                    <span style="color:var(--badge-green);font-size:18px;font-weight:bold" id="bpVal">100</span>
+                </div>
+                <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden">
+                    <div id="bpBar" style="height:100%;background:var(--badge-green);border-radius:3px;transition:width 0.3s;width:100%"></div>
+                </div>
+            </div>
+
+            <!-- ACO PARAMS -->
+            <div class="panel-section">
+                <h3>⚙ Parameter ACO</h3>
+                <div class="sl-row">
+                    <label>Semut (NUM_ANTS) <span id="vAnts">12</span></label>
+                    <input type="range" id="sAnts" min="4" max="40" value="12" step="1">
+                </div>
+                <div class="sl-row">
+                    <label>α Feromon <span id="vAlpha">1</span></label>
+                    <input type="range" id="sAlpha" min="1" max="5" value="1" step="1">
+                </div>
+                <div class="sl-row">
+                    <label>β Jarak <span id="vBeta">3</span></label>
+                    <input type="range" id="sBeta" min="1" max="8" value="3" step="1">
+                </div>
+                <div class="sl-row">
+                    <label>Evaporasi ρ <span id="vEvap">35%</span></label>
+                    <input type="range" id="sEvap" min="5" max="80" value="35" step="1">
+                </div>
+            </div>
+
+            <!-- SIM CONTROLS -->
+            <div class="panel-section">
+                <h3>▶ Simulasi</h3>
+                <div class="sim-btns">
+                    <button class="sim-btn go" id="btnStart">▶ Mulai</button>
+                    <button class="sim-btn" id="btnPause" disabled>⏸ Pause</button>
+                    <button class="sim-btn" id="btnStep">›› Step</button>
+                    <button class="sim-btn danger" id="btnReset">↺ Reset</button>
+                </div>
+            </div>
+
+            <!-- LEGEND -->
+            <div id="legend">
+                <div class="leg-row"><span class="leg-dot" style="background:#22b070"></span>Sarang semut</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#f0a020"></span>Makanan (default)</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#e8684a"></span>Makanan (custom)</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#f5c842;opacity:0.8"></span>Jalur feromon</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#b090f0"></span>Jalur terbaik</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#4a90d9"></span>Semut jelajah</div>
+                <div class="leg-row"><span class="leg-dot" style="background:#d94a4a"></span>Semut bawa makanan</div>
+            </div>
+
+            <!-- LOG -->
+            <div id="logbox"></div>
+
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════
+        //  CANVAS SETUP
+        // ═══════════════════════════════════════════════════════════
+        const bgCv = document.getElementById('bgcanvas');
+        const phCv = document.getElementById('pheromonecanvas');
+        const gmCv = document.getElementById('gamecanvas');
+        const uiCv = document.getElementById('uicanvas');
+        const bgCtx = bgCv.getContext('2d');
+        const phCtx = phCv.getContext('2d');
+        const gmCtx = gmCv.getContext('2d');
+        const uiCtx = uiCv.getContext('2d');
+
+        let W = 800,
+            H = 500;
+
+        function resizeAll() {
+            const s = document.getElementById('stage');
+            W = s.clientWidth || 800;
+            H = s.clientHeight || 500;
+            [bgCv, phCv, gmCv, uiCv].forEach(c => { c.width = W;
+                c.height = H });
+            drawBg();
+            drawPheromone();
+            drawGame();
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  GAME STATE
+        // ═══════════════════════════════════════════════════════════
+        const NEST_NX = 0.12,
+            NEST_NY = 0.5;
+        const BP_MAX = 100;
+
+        const TOOL_CFG = {
+            rock: { cost: 10, type: 'obstacle', emoji: '🪨', label: 'Batu (rintangan besar)' },
+            twig: { cost: 5, type: 'obstacle', emoji: '🪵', label: 'Ranting (rintangan kecil)' },
+            apple: { cost: 15, type: 'food', emoji: '🍎', label: 'Apel (makanan baru)' },
+            sugar: { cost: 15, type: 'food', emoji: '🍬', label: 'Gula (makanan baru)' },
+            mushroom: { cost: 15, type: 'food', emoji: '🍄', label: 'Jamur (makanan baru)' },
+            erase: { cost: 0, type: 'erase', emoji: '🗑', label: 'Hapus objek' },
+        };
+
+        const DEFAULT_FOODS = [
+            { nx: 0.88, ny: 0.18 }, { nx: 0.88, ny: 0.82 }, { nx: 0.72, ny: 0.5 },
+            { nx: 0.55, ny: 0.2 }, { nx: 0.55, ny: 0.8 }, { nx: 0.4, ny: 0.38 }, { nx: 0.4, ny: 0.62 },
+        ];
+
+        let nodes = [],
+            edges = [],
+            ants = [];
+        let obstacles = [];
+        let customFoods = [];
+        let iteration = 0,
+            foodCollected = 0;
+        let bestPath = null,
+            bestLen = Infinity;
+        let buildPoints = BP_MAX;
+        let activeTool = null;
+        let running = false,
+            animId = null,
+            lastTime = 0;
+        let autoRun = true;
+        let cfg = { numAnts: 12, alpha: 1, beta: 3, evap: 0.35 };
+
+        const bgDeco = [];
+        const bgLeaves = [];
+
+        // ═══════════════════════════════════════════════════════════
+        //  INIT
+        // ═══════════════════════════════════════════════════════════
+        function initBgDeco() {
+            bgDeco.length = 0;
+            bgLeaves.length = 0;
+            const cols = ['#4a3526', '#3d2b1f', '#5c3a28', '#523020'];
+            for (let i = 0; i < 120; i++) {
+                bgDeco.push({ x: Math.random() * W, y: Math.random() * H, r: 2 + Math.random() * 5,
+                    col: cols[Math.floor(Math.random() * cols.length)] });
+            }
+            for (let i = 0; i < 40; i++) {
+                bgLeaves.push({ x: Math.random() * W, y: Math.random() * H,
+                    a: Math.random() * Math.PI * 2, l: 8 + Math.random() * 14,
+                    col: Math.random() > 0.5 ? '#3a6030' : '#2a4a20' });
+            }
+        }
+
+        function initGraph() {
+            nodes = [];
+            // Nest
+            nodes.push({ id: 0, nx: NEST_NX, ny: NEST_NY, type: 'nest' });
+            // Default food
+            DEFAULT_FOODS.forEach((f, i) => {
+                nodes.push({ id: i + 1, nx: f.nx, ny: f.ny, type: 'food',
+                    emoji: '🍄', color: '#f0a020', custom: false });
+            });
+            // Custom food
+            customFoods.forEach((f, i) => {
+                nodes.push({ id: nodes.length, nx: f.nx, ny: f.ny, type: 'food',
+                    emoji: f.emoji, color: '#e8684a', custom: true });
+            });
+            buildEdges();
+            ants = [];
+            iteration = 0;
+            foodCollected = 0;
+            bestPath = null;
+            bestLen = Infinity;
+            updStats();
+        }
+
+        function buildEdges() {
+            edges = [];
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const d = realDist(nodes[i], nodes[j]);
+                    const blocked = isBlocked(nodes[i], nodes[j]);
+                    edges.push({ a: i, b: j, pheromone: 1.0, dist: d, blocked });
+                }
+            }
+        }
+
+        function realDist(a, b) {
+            return Math.hypot((a.nx - b.nx) * W, (a.ny - b.ny) * H);
+        }
+
+        function isBlocked(na, nb) {
+            const x1 = na.nx * W,
+                y1 = na.ny * H,
+                x2 = nb.nx * W,
+                y2 = nb.ny * H;
+            for (const ob of obstacles) {
+                if (lineCircleIntersect(x1, y1, x2, y2, ob.x, ob.y, ob.r + 4)) return true;
+            }
+            return false;
+        }
+
+        function lineCircleIntersect(x1, y1, x2, y2, cx, cy, cr) {
+            const dx = x2 - x1,
+                dy = y2 - y1;
+            const fx = x1 - cx,
+                fy = y1 - cy;
+            const a = dx * dx + dy * dy;
+            const b = 2 * (fx * dx + fy * dy);
+            const c = fx * fx + fy * fy - cr * cr;
+            let disc = b * b - 4 * a * c;
+            if (disc < 0) return false;
+            disc = Math.sqrt(disc);
+            const t1 = (-b - disc) / (2 * a);
+            const t2 = (-b + disc) / (2 * a);
+            return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
+        }
+
+        function getEdge(i, j) {
+            return edges.find(e => (e.a === i && e.b === j) || (e.a === j && e.b === i));
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ACO LOGIC
+        // ═══════════════════════════════════════════════════════════
+        function spawnAnts() {
+            ants = [];
+            for (let i = 0; i < cfg.numAnts; i++) {
+                ants.push({
+                    pos: 0,
+                    target: null,
+                    px: nodes[0].nx * W,
+                    py: nodes[0].ny * H,
+                    progress: 0,
+                    edgeDist: 0,
+                    path: [0],
+                    visited: new Set([0]),
+                    carrying: false,
+                    done: false,
+                    totalDist: 0,
+                    speed: 90 + Math.random() * 60,
+                    legProgress: 0,
+                });
+            }
+        }
+
+        function chooseNext(ant) {
+            const unvisited = nodes.map((_, i) => i)
+                .filter(i => i !== 0 && !ant.visited.has(i) && nodes[i].type === 'food');
+            if (!unvisited.length) return 0;
+            const probs = unvisited.map(j => {
+                const e = getEdge(ant.pos, j);
+                if (!e || e.blocked) return 0;
+                return Math.pow(e.pheromone, cfg.alpha) * Math.pow(1 / (e.dist || 1), cfg.beta);
+            });
+            const total = probs.reduce((a, b) => a + b, 0);
+            if (total === 0) {
+                const free = unvisited.filter(j => { const e = getEdge(ant.pos, j); return e && !e.blocked; });
+                return free.length ? free[Math.floor(Math.random() * free.length)] : 0;
+            }
+            let r = Math.random() * total;
+            for (let k = 0; k < unvisited.length; k++) { r -= probs[k]; if (r <= 0) return unvisited[k]; }
+            return unvisited[unvisited.length - 1];
+        }
+
+        function tickAnts(dt) {
+            let allDone = true;
+            for (const ant of ants) {
+                if (ant.done) continue;
+                allDone = false;
+                if (ant.target === null) {
+                    let next = ant.carrying ? 0 : chooseNext(ant);
+                    if (next === ant.pos) { ant.done = true; continue; }
+                    const e = getEdge(ant.pos, next);
+                    ant.target = next;
+                    ant.progress = 0;
+                    ant.edgeDist = (e && !e.blocked) ? e.dist : realDist(nodes[ant.pos], nodes[next]);
+                    ant.totalDist += ant.edgeDist;
+                }
+                ant.progress += dt * ant.speed;
+                const t = Math.min(ant.progress / ant.edgeDist, 1);
+                const fn = nodes[ant.pos],
+                    tn = nodes[ant.target];
+                ant.px = fn.nx * W + (tn.nx - fn.nx) * W * t;
+                ant.py = fn.ny * H + (tn.ny - fn.ny) * H * t;
+                ant.legProgress = (ant.legProgress + dt * 8) % (Math.PI * 2);
+                if (t >= 1) {
+                    ant.pos = ant.target;
+                    ant.target = null;
+                    ant.path.push(ant.pos);
+                    ant.visited.add(ant.pos);
+                    if (ant.pos === 0 && ant.carrying) {
+                        ant.carrying = false;
+                        ant.done = true;
+                        foodCollected++;
+                        if (ant.totalDist < bestLen) {
+                            bestLen = ant.totalDist;
+                            bestPath = [...ant.path];
+                            addLog('🏆 Jalur terbaik baru: <b>' + Math.round(bestLen) + '</b> px (iter ' + iteration + ')',
+                            'best');
+                        }
+                        depositPheromone(ant);
+                    } else if (nodes[ant.pos] && nodes[ant.pos].type === 'food' && !ant.carrying) {
+                        ant.carrying = true;
+                    }
+                }
+            }
+            updStats();
+            return allDone;
+        }
+
+        function depositPheromone(ant) {
+            const Q = 8000;
+            for (let i = 0; i < ant.path.length - 1; i++) {
+                const e = getEdge(ant.path[i], ant.path[i + 1]);
+                if (e && !e.blocked) e.pheromone += Q / ant.totalDist;
+            }
+        }
+
+        function evaporate() {
+            for (const e of edges) {
+                e.pheromone *= (1 - cfg.evap);
+                if (e.pheromone < 0.001) e.pheromone = 0.001;
+                if (e.blocked) e.pheromone = 0.001;
+            }
+        }
+
+        function runIteration() {
+            iteration++;
+            evaporate();
+            spawnAnts();
+            setBanner('Iterasi ' + iteration + ' — ' + cfg.numAnts + ' semut keluar mencari makanan…');
+            addLog('▶ Iterasi <b>' + iteration + '</b> dimulai', 'info');
+            updStats();
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  DRAW
+        // ═══════════════════════════════════════════════════════════
+        function drawBg() {
+            bgCtx.clearRect(0, 0, W, H);
+            bgCtx.fillStyle = '#3d2b1f';
+            bgCtx.fillRect(0, 0, W, H);
+            for (const p of bgDeco) {
+                bgCtx.beginPath();
+                bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                bgCtx.fillStyle = p.col;
+                bgCtx.fill();
+            }
+            for (const l of bgLeaves) {
+                bgCtx.save();
+                bgCtx.translate(l.x, l.y);
+                bgCtx.rotate(l.a);
+                bgCtx.strokeStyle = l.col;
+                bgCtx.lineWidth = 2;
+                bgCtx.beginPath();
+                bgCtx.moveTo(0, 0);
+                bgCtx.quadraticCurveTo(l.l * 0.3, -l.l * 0.8, 0, -l.l);
+                bgCtx.stroke();
+                bgCtx.restore();
+            }
+            const nx = NEST_NX * W,
+                ny = NEST_NY * H;
+            for (let i = 3; i >= 0; i--) {
+                bgCtx.beginPath();
+                bgCtx.arc(nx, ny, 22 + i * 8, 0, Math.PI * 2);
+                bgCtx.strokeStyle = 'rgba(90,55,30,' + (0.3 + i * 0.12) + ')';
+                bgCtx.lineWidth = 3;
+                bgCtx.stroke();
+            }
+        }
+
+        function drawPheromone() {
+            phCtx.clearRect(0, 0, W, H);
+            if (!edges.length) return;
+            const maxP = Math.max(...edges.map(e => e.pheromone), 1);
+            for (const e of edges) {
+                if (e.blocked) continue;
+                const s = e.pheromone / maxP;
+                if (s < 0.04) continue;
+                const na = nodes[e.a],
+                    nb = nodes[e.b];
+                phCtx.beginPath();
+                phCtx.moveTo(na.nx * W, na.ny * H);
+                phCtx.lineTo(nb.nx * W, nb.ny * H);
+                phCtx.strokeStyle = 'rgba(245,200,66,' + Math.min(s * 0.85, 0.8) + ')';
+                phCtx.lineWidth = Math.max(1, s * 9);
+                phCtx.lineCap = 'round';
+                phCtx.stroke();
+            }
+        }
+
+        function drawGame() {
+            gmCtx.clearRect(0, 0, W, H);
+
+            // Best path
+            if (bestPath && bestPath.length > 1) {
+                gmCtx.beginPath();
+                gmCtx.moveTo(nodes[bestPath[0]].nx * W, nodes[bestPath[0]].ny * H);
+                for (let i = 1; i < bestPath.length; i++)
+                    gmCtx.lineTo(nodes[bestPath[i]].nx * W, nodes[bestPath[i]].ny * H);
+                gmCtx.strokeStyle = 'rgba(180,144,255,0.7)';
+                gmCtx.lineWidth = 3;
+                gmCtx.setLineDash([6, 5]);
+                gmCtx.stroke();
+                gmCtx.setLineDash([]);
+            }
+
+            // Obstacles
+            for (const ob of obstacles) {
+                gmCtx.save();
+                gmCtx.font = ob.r * 2.2 + 'px serif';
+                gmCtx.textAlign = 'center';
+                gmCtx.textBaseline = 'middle';
+                gmCtx.fillText(ob.emoji, ob.x, ob.y);
+                gmCtx.restore();
+                gmCtx.beginPath();
+                gmCtx.arc(ob.x, ob.y + ob.r * 0.7, ob.r * 0.8, 0, Math.PI * 2);
+                gmCtx.fillStyle = 'rgba(0,0,0,0.18)';
+                gmCtx.fill();
+            }
+
+            // Food nodes
+            for (const n of nodes) {
+                if (n.type !== 'food') continue;
+                const x = n.nx * W,
+                    y = n.ny * H;
+                const g = gmCtx.createRadialGradient(x, y, 2, x, y, 18);
+                g.addColorStop(0, n.custom ? 'rgba(240,100,60,0.35)' : 'rgba(240,160,30,0.35)');
+                g.addColorStop(1, 'rgba(0,0,0,0)');
+                gmCtx.beginPath();
+                gmCtx.arc(x, y, 18, 0, Math.PI * 2);
+                gmCtx.fillStyle = g;
+                gmCtx.fill();
+                gmCtx.font = '20px serif';
+                gmCtx.textAlign = 'center';
+                gmCtx.textBaseline = 'middle';
+                gmCtx.fillText(n.emoji, x, y);
+                gmCtx.font = '10px monospace';
+                gmCtx.fillStyle = 'rgba(245,230,200,0.6)';
+                gmCtx.fillText('F' + n.id, x, y + 16);
+            }
+
+            // Nest
+            {
+                const x = NEST_NX * W,
+                    y = NEST_NY * H;
+                gmCtx.beginPath();
+                gmCtx.arc(x, y, 20, 0, Math.PI * 2);
+                gmCtx.fillStyle = '#2a1a0a';
+                gmCtx.fill();
+                gmCtx.beginPath();
+                gmCtx.arc(x, y, 20, 0, Math.PI * 2);
+                gmCtx.strokeStyle = '#6b4226';
+                gmCtx.lineWidth = 2.5;
+                gmCtx.stroke();
+                gmCtx.font = '20px serif';
+                gmCtx.textAlign = 'center';
+                gmCtx.textBaseline = 'middle';
+                gmCtx.fillText('🏠', x, y);
+                gmCtx.font = '10px monospace';
+                gmCtx.fillStyle = '#22b070';
+                gmCtx.fillText('Sarang', x, y + 28);
+            }
+
+            // Ants
+            for (const ant of ants) {
+                if (ant.done) continue;
+                const x = ant.px,
+                    y = ant.py;
+                const col = ant.carrying ? '#d94a4a' : '#4a90d9';
+                gmCtx.beginPath();
+                gmCtx.ellipse(x, y, 5, 3.5, 0, 0, Math.PI * 2);
+                gmCtx.fillStyle = col;
+                gmCtx.fill();
+                const hn = ant.target !== null ? nodes[ant.target] : null;
+                let hx = x + 5,
+                    hy = y;
+                if (hn) { const a = Math.atan2(hn.ny * H - y, hn.nx * W - x);
+                    hx = x + Math.cos(a) * 6;
+                    hy = y + Math.sin(a) * 6; }
+                gmCtx.beginPath();
+                gmCtx.arc(hx, hy, 2.5, 0, Math.PI * 2);
+                gmCtx.fillStyle = col;
+                gmCtx.fill();
+                const lp = ant.legProgress;
+                gmCtx.strokeStyle = col;
+                gmCtx.lineWidth = 0.8;
+                const dir = ant.target !== null ? Math.atan2((ant.target > 0 ? nodes[ant.target].ny * H : NEST_NY * H) - y,
+                    (ant.target > 0 ? nodes[ant.target].nx * W : NEST_NX * W) - x) : 0;
+                for (let l = 0; l < 3; l++) {
+                    const sw = Math.sin(lp + l * 1.2) * 5;
+                    const ox = Math.cos(dir + Math.PI / 2) * (l - 1) * 3;
+                    const oy = Math.sin(dir + Math.PI / 2) * (l - 1) * 3;
+                    gmCtx.beginPath();
+                    gmCtx.moveTo(x + ox, y + oy);
+                    gmCtx.lineTo(x + ox + Math.cos(dir + Math.PI / 2) * sw, y + oy + Math.sin(dir + Math.PI / 2) * sw);
+                    gmCtx.stroke();
+                    gmCtx.beginPath();
+                    gmCtx.moveTo(x + ox, y + oy);
+                    gmCtx.lineTo(x + ox - Math.cos(dir + Math.PI / 2) * sw, y + oy - Math.sin(dir + Math.PI / 2) * sw);
+                    gmCtx.stroke();
+                }
+                if (ant.carrying) {
+                    gmCtx.beginPath();
+                    gmCtx.arc(x, y - 7, 3, 0, Math.PI * 2);
+                    gmCtx.fillStyle = '#f0a020';
+                    gmCtx.fill();
+                }
+                gmCtx.strokeStyle = col;
+                gmCtx.lineWidth = 0.7;
+                gmCtx.beginPath();
+                gmCtx.moveTo(hx, hy);
+                gmCtx.lineTo(hx + 4 * Math.cos(dir - 0.5), hy + 4 * Math.sin(dir - 0.5));
+                gmCtx.stroke();
+                gmCtx.beginPath();
+                gmCtx.moveTo(hx, hy);
+                gmCtx.lineTo(hx + 4 * Math.cos(dir + 0.5), hy + 4 * Math.sin(dir + 0.5));
+                gmCtx.stroke();
+            }
+        }
+
+        function drawUiOverlay(mx, my) {
+            uiCtx.clearRect(0, 0, W, H);
+            if (!activeTool || mx == null) return;
+            const tc = TOOL_CFG[activeTool];
+            uiCtx.globalAlpha = 0.7;
+            uiCtx.font = '26px serif';
+            uiCtx.textAlign = 'center';
+            uiCtx.textBaseline = 'middle';
+            uiCtx.fillText(tc.emoji, mx, my);
+            uiCtx.globalAlpha = 0.3;
+            uiCtx.beginPath();
+            uiCtx.arc(mx, my, tc.type === 'obstacle' ? (activeTool === 'rock' ? 20 : 12) : 14, 0, Math.PI * 2);
+            uiCtx.strokeStyle = tc.type === 'obstacle' ? '#d94a4a' : '#22b070';
+            uiCtx.lineWidth = 1.5;
+            uiCtx.setLineDash([4, 3]);
+            uiCtx.stroke();
+            uiCtx.setLineDash([]);
+            uiCtx.globalAlpha = 1;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  GAME LOOP
+        // ═══════════════════════════════════════════════════════════
+        let phFrameTimer = 0;
+
+        function loop(ts) {
+            if (!running) { animId = null; return; }
+            const dt = Math.min((ts - lastTime) / 1000, 0.05);
+            lastTime = ts;
+            phFrameTimer += dt;
+
+            const allDone = tickAnts(dt);
+            if (phFrameTimer > 0.1) { drawPheromone();
+                phFrameTimer = 0; }
+            drawGame();
+
+            if (allDone) {
+                running = false;
+                setBanner('✅ Iterasi ' + iteration + ' selesai — feromon diperbarui', true);
+                addLog('✅ Iterasi <b>' + iteration + '</b> selesai · Makanan: <b>' + foodCollected + '</b>', 'good');
+                document.getElementById('btnStart').disabled = false;
+                document.getElementById('btnPause').disabled = true;
+                if (autoRun) {
+                    setTimeout(() => {
+                        if (!running) {
+                            running = true;
+                            lastTime = performance.now();
+                            runIteration();
+                            animId = requestAnimationFrame(loop);
+                        }
+                    }, 600);
+                }
+                return;
+            }
+            animId = requestAnimationFrame(loop);
+        }
+
+        function simStart() {
+            readCfg();
+            autoRun = true;
+            if (!running) {
+                running = true;
+                lastTime = performance.now();
+                if (iteration === 0) runIteration();
+                animId = requestAnimationFrame(loop);
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnPause').disabled = false;
+            }
+        }
+
+        function simPause() {
+            autoRun = false;
+            running = false;
+            if (animId) { cancelAnimationFrame(animId);
+                animId = null; }
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            setBanner('⏸ Dijeda — tekan Mulai untuk lanjut');
+            addLog('⏸ Dijeda', 'info');
+        }
+
+        function simStep() {
+            readCfg();
+            autoRun = false;
+            if (iteration === 0) { runIteration();
+                drawPheromone();
+                drawGame(); return; }
+            for (let i = 0; i < 8; i++) tickAnts(0.016);
+            drawPheromone();
+            drawGame();
+        }
+
+        function simReset() {
+            autoRun = false;
+            running = false;
+            if (animId) { cancelAnimationFrame(animId);
+                animId = null; }
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnPause').disabled = true;
+            buildPoints = BP_MAX;
+            document.getElementById('bpVal').textContent = buildPoints;
+            document.getElementById('bpBar').style.width = '100%';
+            document.getElementById('bpBar').style.background = '#22b070';
+            obstacles = [];
+            customFoods = [];
+            initGraph();
+            drawPheromone();
+            drawGame();
+            setBanner('↺ Reset — pilih alat atau tekan Mulai');
+            addLog('↺ Game di-reset', 'warn');
+            document.getElementById('logbox').innerHTML = '';
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  TOOL SYSTEM
+        // ═══════════════════════════════════════════════════════════
+        function setTool(name) {
+            activeTool = (activeTool === name) ? null : name;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            if (activeTool) {
+                const el = document.getElementById('t-' + name);
+                if (el) el.classList.add('active');
+                document.getElementById('tool-hint').textContent = TOOL_CFG[name].label;
+            } else {
+                document.getElementById('tool-hint').textContent = 'Pilih alat lalu klik di peta.';
+            }
+            drawUiOverlay(null, null);
+        }
+
+        function placeThing(mx, my) {
+            if (!activeTool) return;
+            const tc = TOOL_CFG[activeTool];
+
+            if (activeTool === 'erase') {
+                const oi = obstacles.findIndex(o => Math.hypot(o.x - mx, o.y - my) < o.r + 10);
+                if (oi >= 0) {
+                    obstacles.splice(oi, 1);
+                    rebuildBlocked();
+                    drawBg();
+                    drawGame();
+                    drawPheromone();
+                    addLog('🗑 Rintangan dihapus', 'info');
+                    return;
+                }
+                const fi = customFoods.findIndex(f => Math.hypot(f.nx * W - mx, f.ny * H - my) < 18);
+                if (fi >= 0) {
+                    customFoods.splice(fi, 1);
+                    initGraph();
+                    drawPheromone();
+                    drawGame();
+                    addLog('🗑 Makanan kustom dihapus', 'info');
+                }
+                return;
+            }
+
+            if (buildPoints < tc.cost) {
+                addLog('⚠ Build Points tidak cukup!', 'warn');
+                setBanner('⚠ Build Points habis!', true);
+                return;
+            }
+
+            if (Math.hypot(mx - NEST_NX * W, my - NEST_NY * H) < 50) {
+                addLog('⚠ Terlalu dekat dengan sarang!', 'warn');
+                return;
+            }
+
+            if (tc.type === 'obstacle') {
+                const r = activeTool === 'rock' ? 20 : 11;
+                obstacles.push({ x: mx, y: my, r: r, kind: activeTool, emoji: tc.emoji });
+                spendBP(tc.cost);
+                rebuildBlocked();
+                drawBg();
+                drawPheromone();
+                drawGame();
+                addLog(tc.emoji + ' ' + (activeTool === 'rock' ? 'Batu' : 'Ranting') +
+                    ' ditempatkan — beberapa jalur semut diblokir!', 'warn');
+            } else if (tc.type === 'food') {
+                const nx = mx / W,
+                    ny = my / H;
+                customFoods.push({ nx: nx, ny: ny, emoji: tc.emoji, kind: activeTool });
+                spendBP(tc.cost);
+                initGraph();
+                drawPheromone();
+                drawGame();
+                addLog(tc.emoji + ' ' + tc.label.split('(')[0].trim() +
+                    ' ditambahkan — semut akan menjelajahi jalur baru!', 'good');
+            }
+        }
+
+        function rebuildBlocked() {
+            for (const e of edges) {
+                e.blocked = isBlocked(nodes[e.a], nodes[e.b]);
+                if (e.blocked) e.pheromone = 0.001;
+            }
+        }
+
+        function spendBP(cost) {
+            buildPoints = Math.max(0, buildPoints - cost);
+            document.getElementById('bpVal').textContent = buildPoints;
+            document.getElementById('bpBar').style.width = (buildPoints / BP_MAX * 100) + '%';
+            document.getElementById('bpBar').style.background =
+                buildPoints > 50 ? '#22b070' : buildPoints > 25 ? '#f0a020' : '#d94a4a';
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  MOUSE / TOUCH
+        // ═══════════════════════════════════════════════════════════
+        let mousePos = { x: null, y: null };
+        const stage = document.getElementById('stage');
+
+        stage.addEventListener('mousemove', function(e) {
+            const r = stage.getBoundingClientRect();
+            mousePos.x = e.clientX - r.left;
+            mousePos.y = e.clientY - r.top;
+            drawUiOverlay(mousePos.x, mousePos.y);
+        });
+
+        stage.addEventListener('mouseleave', function() {
+            mousePos.x = null;
+            mousePos.y = null;
+            uiCtx.clearRect(0, 0, W, H);
+        });
+
+        stage.addEventListener('click', function(e) {
+            const r = stage.getBoundingClientRect();
+            placeThing(e.clientX - r.left, e.clientY - r.top);
+        });
+
+        // Tool buttons
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                setTool(this.dataset.tool);
+            });
+        });
+
+        // Sim buttons
+        document.getElementById('btnStart').addEventListener('click', simStart);
+        document.getElementById('btnPause').addEventListener('click', simPause);
+        document.getElementById('btnStep').addEventListener('click', simStep);
+        document.getElementById('btnReset').addEventListener('click', simReset);
+
+        // ═══════════════════════════════════════════════════════════
+        //  SLIDERS
+        // ═══════════════════════════════════════════════════════════
+        function readCfg() {
+            cfg.numAnts = +document.getElementById('sAnts').value;
+            cfg.alpha = +document.getElementById('sAlpha').value;
+            cfg.beta = +document.getElementById('sBeta').value;
+            cfg.evap = +document.getElementById('sEvap').value / 100;
+        }
+
+        function bindSl(id, outId, fmt) {
+            document.getElementById(id).addEventListener('input', function() {
+                document.getElementById(outId).textContent = fmt(this.value);
+                readCfg();
+            });
+        }
+        bindSl('sAnts', 'vAnts', v => v);
+        bindSl('sAlpha', 'vAlpha', v => v);
+        bindSl('sBeta', 'vBeta', v => v);
+        bindSl('sEvap', 'vEvap', v => v + '%');
+
+        // ═══════════════════════════════════════════════════════════
+        //  UI HELPERS
+        // ═══════════════════════════════════════════════════════════
+        function setBanner(msg, fade) {
+            const b = document.getElementById('banner');
+            b.textContent = msg;
+            b.style.opacity = '1';
+            if (fade) setTimeout(() => { b.style.opacity = '0'; }, 2500);
+        }
+
+        function addLog(msg, type) {
+            const el = document.getElementById('logbox');
+            const cls = { good: 'ev-good', best: 'ev-best', warn: 'ev-warn', info: 'ev-info' } [type] || 'ev-info';
+            const now = new Date();
+            const t = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' +
+                String(now.getSeconds()).padStart(2, '0');
+            el.innerHTML = '<div class="' + cls + '"><span style="opacity:0.4">[' + t + ']</span> ' + msg + '</div>' + el
+            .innerHTML;
+        }
+
+        function updStats() {
+            document.getElementById('cIter').textContent = iteration;
+            document.getElementById('cBest').textContent = bestLen < Infinity ? Math.round(bestLen) : '—';
+            document.getElementById('cFood').textContent = foodCollected;
+            document.getElementById('cAnts').textContent = ants.filter(a => !a.done).length;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  STARTUP
+        // ═══════════════════════════════════════════════════════════
+        window.addEventListener('resize', function() {
+            resizeAll();
+            initBgDeco();
+            drawBg();
+            drawPheromone();
+            drawGame();
+        });
+
+        function boot() {
+            resizeAll();
+            initBgDeco();
+            drawBg();
+            initGraph();
+            drawPheromone();
+            drawGame();
+            addLog('🐜 Selamat datang di OptiAnt! Tekan <b>Mulai</b> untuk memulai simulasi.', 'good');
+            addLog('💡 Tambahkan rintangan atau makanan baru menggunakan panel alat di sebelah kiri.', 'info');
+        }
+
+        // Run after DOM is fully ready
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            boot();
+        } else {
+            document.addEventListener('DOMContentLoaded', boot);
+        }
+    </script>
+</body>
+</html>
