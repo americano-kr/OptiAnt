@@ -59,13 +59,13 @@ As this is a pure client-side application, getting started is as easy as 1-2-3:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/optiant.git
+git clone https://github.com/americano-kr/OptiAnt.git
 
 # 2. Navigate to the directory
 cd optiant
 
 # 3. Open the file (Mac/Linux/Windows)
-open index.html
+open OptiAnt.html
 # OR double-click the file in your file explorer.
 ```
 
